@@ -27,6 +27,7 @@ final class PhabricatorUIConfigOptions
       'green' => pht('Green'),
       'indigo' => pht('Indigo'),
       'dark' => pht('Dark'),
+      'fds' => pht('FDS'),
     );
 
     $example = <<<EOJSON
