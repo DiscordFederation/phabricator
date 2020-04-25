@@ -101,9 +101,9 @@ final class PhabricatorPhurlURL extends PhabricatorPhurlDAO
 
   public function getRedirectURI() {
     if (strlen($this->getAlias())) {
-      $path = '/u/'.$this->getAlias();
+      $path = '/'.$this->getAlias();
     } else {
-      $path = '/u/'.$this->getID();
+      $path = '/'.$this->getID();
     }
     $domain = PhabricatorEnv::getEnvConfig('phurl.short-uri');
     if (!$domain) {

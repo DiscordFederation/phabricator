@@ -55,7 +55,7 @@ final class PhabricatorPhurlApplication extends PhabricatorApplication {
 
   public function getShortRoutes() {
     return array(
-      '/u/(?P<append>[^/]+)' => 'PhabricatorPhurlShortURLController',
+      '/(?P<append>[^/]+)' => 'PhabricatorPhurlShortURLController',
       '.*' => 'PhabricatorPhurlShortURLDefaultController',
     );
   }
