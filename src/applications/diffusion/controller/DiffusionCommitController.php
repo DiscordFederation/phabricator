@@ -414,9 +414,15 @@ final class DiffusionCommitController extends DiffusionController {
         $visible_changesets = $changesets;
       } else {
         $visible_changesets = array();
-        $inlines = PhabricatorAuditInlineComment::loadDraftAndPublishedComments(
-          $viewer,
-          $commit->getPHID());
+
+        $inlines = id(new DiffusionDiffInlineCommentQuery())
+          ->setViewer($viewer)
+          ->withCommitPHIDs(array($commit->getPHID()))
+          ->withPublishedComments(true)
+          ->withPublishableComments(true)
+          ->execute();
+        $inlines = mpull($inlines, 'newInlineCommentObject');
+
         $path_ids = mpull($inlines, null, 'getPathID');
         foreach ($changesets as $key => $changeset) {
           if (array_key_exists($changeset->getID(), $path_ids)) {
@@ -459,8 +465,11 @@ final class DiffusionCommitController extends DiffusionController {
 
     $filetree = id(new DifferentialFileTreeEngine())
       ->setViewer($viewer)
-      ->setChangesets($changesets)
       ->setDisabled(!$show_changesets);
+
+    if ($show_changesets) {
+      $filetree->setChangesets($changesets);
+    }
 
     $description_box = id(new PHUIObjectBoxView())
       ->setHeaderText(pht('Description'))

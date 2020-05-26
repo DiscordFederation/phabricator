@@ -252,7 +252,7 @@ final class DifferentialChangesetDetailView extends AphrontView {
           'isLowImportance' => $changeset->getIsLowImportanceChangeset(),
           'isOwned' => $changeset->getIsOwnedChangeset(),
 
-          'editorURI' => $this->getEditorURI(),
+          'editorURITemplate' => $this->getEditorURITemplate(),
           'editorConfigureURI' => $this->getEditorConfigureURI(),
 
           'loaded' => $is_loaded,
@@ -278,7 +278,13 @@ final class DifferentialChangesetDetailView extends AphrontView {
           ),
           array(
             $icon,
-            $display_filename,
+            javelin_tag(
+              'span',
+              array(
+                'class' => 'differential-changeset-path-name',
+                'sigil' => 'changeset-header-path-name',
+              ),
+              $display_filename),
           )),
         javelin_tag(
           'div',
@@ -315,7 +321,7 @@ final class DifferentialChangesetDetailView extends AphrontView {
     return $this->diff;
   }
 
-  private function getEditorURI() {
+  private function getEditorURITemplate() {
     $repository = $this->getRepository();
     if (!$repository) {
       return null;
@@ -336,9 +342,7 @@ final class DifferentialChangesetDetailView extends AphrontView {
     $path = $changeset->getAbsoluteRepositoryPath($repository, $diff);
     $path = ltrim($path, '/');
 
-    $line = idx($changeset->getMetadata(), 'line:first', 1);
-
-    return $link_engine->getURIForPath($path, $line);
+    return $link_engine->getURITokensForPath($path);
   }
 
   private function getEditorConfigureURI() {

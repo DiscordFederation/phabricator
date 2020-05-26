@@ -11,6 +11,7 @@
  *           phabricator-diff-inline
  *           phabricator-diff-path-view
  *           phuix-button-view
+ *           javelin-external-editor-link-engine
  * @javelin
  */
 
@@ -33,7 +34,7 @@ JX.install('DiffChangeset', {
     this._pathParts = data.pathParts;
     this._icon = data.icon;
 
-    this._editorURI = data.editorURI;
+    this._editorURITemplate = data.editorURITemplate;
     this._editorConfigureURI = data.editorConfigureURI;
     this._showPathURI = data.showPathURI;
     this._showDirectoryURI = data.showDirectoryURI;
@@ -44,14 +45,20 @@ JX.install('DiffChangeset', {
     this._isOwned = data.isOwned;
     this._isLoading = true;
 
-    this._inlines = [];
+    this._inlines = null;
 
     if (data.changesetState) {
       this._loadChangesetState(data.changesetState);
     }
 
+    JX.enableDispatch(window, 'selectstart');
+
     var onselect = JX.bind(this, this._onClickHeader);
-    JX.DOM.listen(this._node, 'mousedown', 'changeset-header', onselect);
+    JX.DOM.listen(
+      this._node,
+      ['mousedown', 'selectstart'],
+      'changeset-header',
+      onselect);
   },
 
   members: {
@@ -64,7 +71,9 @@ JX.install('DiffChangeset', {
     _ref: null,
     _rendererKey: null,
     _highlight: null,
-    _documentEngine: null,
+    _requestDocumentEngineKey: null,
+    _responseDocumentEngineKey: null,
+    _availableDocumentEngineKeys: null,
     _characterEncoding: null,
     _undoTemplates: null,
 
@@ -79,7 +88,7 @@ JX.install('DiffChangeset', {
     _changesetList: null,
     _icon: null,
 
-    _editorURI: null,
+    _editorURITemplate: null,
     _editorConfigureURI: null,
     _showPathURI: null,
     _showDirectoryURI: null,
@@ -94,8 +103,8 @@ JX.install('DiffChangeset', {
     _isSelected: false,
     _viewMenu: null,
 
-    getEditorURI: function() {
-      return this._editorURI;
+    getEditorURITemplate: function() {
+      return this._editorURITemplate;
     },
 
     getEditorConfigureURI: function() {
@@ -411,8 +420,16 @@ JX.install('DiffChangeset', {
       return this._highlight;
     },
 
-    getDocumentEngine: function(engine) {
-      return this._documentEngine;
+    getRequestDocumentEngineKey: function() {
+      return this._requestDocumentEngineKey;
+    },
+
+    getResponseDocumentEngineKey: function() {
+      return this._responseDocumentEngineKey;
+    },
+
+    getAvailableDocumentEngineKeys: function() {
+      return this._availableDocumentEngineKeys;
     },
 
     getSelectableItems: function() {
@@ -437,8 +454,23 @@ JX.install('DiffChangeset', {
       var blocks = [];
       var block;
       var ii;
+      var parent_node = null;
       for (ii = 0; ii < rows.length; ii++) {
         var type = this._getRowType(rows[ii]);
+
+        // This row might be part of a diff inside an inline comment, showing
+        // an inline edit suggestion. Before we accept it as a possible target
+        // for selection, make sure it's a child of the right parent.
+
+        if (parent_node === null) {
+          parent_node = rows[ii].parentNode;
+        }
+
+        if (type !== null) {
+          if (rows[ii].parentNode !== parent_node) {
+            type = null;
+          }
+        }
 
         if (!block || (block.type !== type)) {
           block = {
@@ -665,7 +697,9 @@ JX.install('DiffChangeset', {
       this._rendererKey = state.rendererKey;
       this._highlight = state.highlight;
       this._characterEncoding = state.characterEncoding;
-      this._documentEngine = state.documentEngine;
+      this._requestDocumentEngineKey = state.requestDocumentEngineKey;
+      this._responseDocumentEngineKey = state.responseDocumentEngineKey;
+      this._availableDocumentEngineKeys = state.availableDocumentEngineKeys;
       this._isHidden = state.isHidden;
 
       var is_hidden = !this.isVisible();
@@ -699,7 +733,7 @@ JX.install('DiffChangeset', {
       return data.inline;
     },
 
-    newInlineForRange: function(origin, target) {
+    newInlineForRange: function(origin, target, options) {
       var list = this.getChangesetList();
 
       var src = list.getLineNumberFromHeader(origin);
@@ -730,6 +764,8 @@ JX.install('DiffChangeset', {
         isNewFile: is_new
       };
 
+      JX.copy(data, options || {});
+
       var inline = new JX.DiffInline()
         .setChangeset(this)
         .bindToRange(data);
@@ -741,14 +777,14 @@ JX.install('DiffChangeset', {
       return inline;
     },
 
-    newInlineReply: function(original, text) {
+    newInlineReply: function(original, state) {
       var inline = new JX.DiffInline()
         .setChangeset(this)
         .bindToReply(original);
 
       this._inlines.push(inline);
 
-      inline.create(text);
+      inline.create(state);
 
       return inline;
     },
@@ -775,8 +811,10 @@ JX.install('DiffChangeset', {
     },
 
     _findInline: function(field, value) {
-      for (var ii = 0; ii < this._inlines.length; ii++) {
-        var inline = this._inlines[ii];
+      var inlines = this.getInlines();
+
+      for (var ii = 0; ii < inlines.length; ii++) {
+        var inline = inlines[ii];
 
         var target;
         switch (field) {
@@ -797,11 +835,18 @@ JX.install('DiffChangeset', {
     },
 
     getInlines: function() {
-      this._rebuildAllInlines();
+      if (this._inlines === null) {
+        this._rebuildAllInlines();
+      }
+
       return this._inlines;
     },
 
     _rebuildAllInlines: function() {
+      if (this._inlines === null) {
+        this._inlines = [];
+      }
+
       var rows = JX.DOM.scry(this._node, 'tr');
       var ii;
       for (ii = 0; ii < rows.length; ii++) {
@@ -817,7 +862,7 @@ JX.install('DiffChangeset', {
     },
 
     redrawFileTree: function() {
-      var inlines = this._inlines;
+      var inlines = this.getInlines();
       var done = [];
       var undone = [];
       var inline;
@@ -826,6 +871,10 @@ JX.install('DiffChangeset', {
         inline = inlines[ii];
 
         if (inline.isDeleted()) {
+          continue;
+        }
+
+        if (inline.isUndo()) {
           continue;
         }
 
@@ -882,7 +931,24 @@ JX.install('DiffChangeset', {
     },
 
     _onClickHeader: function(e) {
-      e.prevent();
+      // If the user clicks the actual path name text, don't count this as
+      // a selection action: we want to let them select the path.
+      var path_name = e.getNode('changeset-header-path-name');
+      if (path_name) {
+        return;
+      }
+
+      // Don't allow repeatedly clicking a header to begin a "select word" or
+      // "select line" operation.
+      if (e.getType() === 'selectstart') {
+        e.kill();
+        return;
+      }
+
+      // NOTE: Don't prevent or kill the event. If the user has text selected,
+      // clicking a header should clear the selection (and dismiss any inline
+      // context menu, if one exists) as clicking elsewhere in the document
+      // normally would.
 
       if (this._isSelected) {
         this.getChangesetList().selectChangeset(null);
@@ -982,16 +1048,14 @@ JX.install('DiffChangeset', {
 
     _onClickShowButton: function(e) {
       e.prevent();
-      this.setVisible(true);
+
+      // We're always showing the changeset, but want to make sure the state
+      // change is persisted on the server.
+      this.toggleVisibility();
     },
 
     isVisible: function() {
       return this._visible;
-    },
-
-    _onundo: function(e) {
-      e.kill();
-      this.toggleVisibility();
     },
 
     getPathView: function() {

@@ -2032,6 +2032,7 @@ abstract class PhabricatorEditEngine
         ->setException($ex);
     } catch (PhabricatorApplicationTransactionWarningException $ex) {
       return id(new PhabricatorApplicationTransactionWarningResponse())
+        ->setObject($object)
         ->setCancelURI($view_uri)
         ->setException($ex);
     }
@@ -2201,6 +2202,16 @@ abstract class PhabricatorEditEngine
             'Parameter "%s" must contain a list of transaction descriptions, '.
             'but item with key "%s" is missing a "type" field. Each '.
             'transaction must have a type field.',
+            $transactions_key,
+            $key));
+      }
+
+      if (!array_key_exists('value', $xaction)) {
+        throw new Exception(
+          pht(
+            'Parameter "%s" must contain a list of transaction descriptions, '.
+            'but item with key "%s" is missing a "value" field. Each '.
+            'transaction must have a value field.',
             $transactions_key,
             $key));
       }

@@ -319,20 +319,14 @@ td.cov-I {
   cursor: pointer;
 }
 
+.differential-changeset .differential-file-icon-header
+  .differential-changeset-path-name {
+  cursor: auto;
+}
+
 .device-phone .differential-changeset .differential-file-icon-header {
   word-break: break-word;
   margin-right: 8px;
-}
-
-.differential-reticle {
-  background-color: {$sh-yellowbackground};
-  border: 1px solid {$sh-yellowborder};
-  position: absolute;
-  opacity: 0.5;
-  top: 0;
-  left: 0;
-  box-sizing: border-box;
-  pointer-events: none;
 }
 
 .differential-loading {
@@ -481,4 +475,36 @@ unselectable. */
 .changeset-selected .differential-file-icon-header {
   background: {$lightyellow};
   color: {$blacktext};
+}
+
+.differential-diff tr td.inline-hover {
+  background: {$gentle.highlight};
+}
+
+.differential-diff tr td.inline-hover-bright {
+  background: {$highlight.bright};
+}
+
+.differential-diff tr td.n.inline-hover {
+  background: {$yellow};
+}
+
+.inline-hover-container {
+  position: absolute;
+  color: {$lightgreytext};
+  background: {$lightyellow};
+}
+
+.inline-hover-text {
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.inline-hover-text-bright {
+  color: {$blacktext};
+  background: {$highlight.bright};
+}
+
+.differential-diff td.inline-hover span.bright {
+  background: transparent;
 }
